@@ -1,4 +1,4 @@
-Client library for working with the [https://github.com/bookworm/dbd_forge]("Forge") API. List Joomla! extensions, pull their downloads, check compatibilities etc.
+Client library for working with the [Forge](https://github.com/bookworm/dbd_forge) API. List Joomla! extensions, pull their downloads, check compatibilities etc.
 
 # License  
  
