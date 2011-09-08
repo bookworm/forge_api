@@ -1,0 +1,3 @@
+[submodule "REST"]
+	path = REST
+	url = git@github.com:bookworm/REST.git
