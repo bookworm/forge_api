@@ -3,14 +3,14 @@
 // Requires
 require 'oauth.php';    
 require 'REST' . DS . 'client.php';  
-require 'REST' . DS . 'simpleClient.php';    
+require 'REST' . DS . 'simpleClient.php';  
+require 'source.php';  
 
 // ------------------------------------------------------------------------
 
 /**
  * Forge API Script.
  *    
- * @package     ForgeInstaller
  * @subpackage  core
  * @version     1.0 Beta
  * @author      Ken Erickson AKA Bookworm http://bookwormproductions.net
@@ -20,39 +20,11 @@ require 'REST' . DS . 'simpleClient.php';
 class Forge_API
 {
   /**
-   * Public API Key.
-   *                              
-   * @var string     
-   **/
-  var $pubKey; 
-
-  /**
-   * Private API Key.
-   *                              
-   * @var string     
-   **/
-  var $privateKey;
-  
-  /**
-   * Holds the public key, private key and token for passing to the oAuth script.
-   *                              
-   * @var arrau     
-   **/
-  var $signatures = array();  
-  
-  /**
    * Sources/Forges to send the requests to.
    *                              
-   * @var array    
+   * @var array Containing Forge_Source objects    
    **/
-  var $sources = array('localhost');  
-  
-  /**
-   * Port to use.
-   *                              
-   * @var int   
-   **/
-  var $port = 3000;  
+  var $sources = array();  
   
   /**
    * Whether or not to decode the JSON into PHP objects.
@@ -64,62 +36,92 @@ class Forge_API
   /**
    * Configuration array.        
    *
-   * @note Following options accepted;
-   *  $this->config['decode']
-   *  $this->config['sources']                             
-   *  $this->config['port']
-   * @var array   
+   * @var array  
+   *  $config['decode'] whether or not to decode.  
+   *  $config['limit'] number of items to return. 
    **/
   var $config = array( 
     'limit' => '20',
   );
 
   /**
-   * Constructor Function. Keeps the PHP Gods Happy.
+   * Constructor Function. Keeps the PHP Gods Happy.  
+   *
+   * @note We ultimately construct a source object and append it to $sources. 
+   *  The $pubKey = null, $privateKey = null, $url = null vars are basically there for ease of use.
    * 
    * @param string $pubKey The Public key.  
-   * @param string $privateKey The Public key.      
+   * @param string $privateKey The Public key.     
+   * @param string $url The Source URL.
+   * @param array  $sources Should be an array. Do not use this if you set any of the previous vars.
+   *  $source['public_key'], $source['private_key'], $source['source_url']
+   *
    * @param array $config Configuration array. Following options accepted; 
-   *  $this->config['decode']
-   *  $this->config['sources']
-   *  $this->config['port']
+   *  $config['decode'] whether or not to decode.  
+   *  $config['limit'] number of items to return.
    * @return void
    **/    
-  public function __construct($pubKey, $privateKey, $config = null)
-  {  
-    $this->pubKey     = $pubKey;
-    $this->privateKey = $privateKey;     
-    $this->signatures = array('consumer_key' => $this->pubKey, 'shared_secret' => $this->privateKey);      
-    
-    if(!is_null($config)) 
-    {
+  public function __construct($pubKey = null, $privateKey = null, $url = null, $sources = null, $config = null)
+  {      
+    if(!is_null($config)) {
       $this->config = array_merge($this->config, $config);        
+      if(isset($this->config['decode'])) $this->decode  = $this->config['decode'];       
+    }  
+    
+    if(is_null($sources))
+      $sources = array(array('public_key' => $pubKey, 'private_key' => $privateKey, 'source_url' => $url));
       
-      if(isset($this->config['decode']))  $this->decode  = $this->config['decode'];       
-      if(isset($this->config['sources'])) $this->sources = $this->config['sources'];  
-      if(isset($this->config['port']))    $this->port    = $this->config['port'];
+    $this->sources = $this->_genSources($sources);
+  }
+  
+// ------------------------------------------------------------------------
+        
+  /**
+   * Generates source objects.
+   * 
+   * @note Cool abstraction so artifacts can be pulled from multiple forgeries. 
+   *   
+   * @return array The array of sources
+   */
+  private function _genSources($sources)
+  {
+    $result = array();
+    
+    foreach($sources as $source) {    
+      if(!isset($source['port'])) $source['port'] = null;
+      if(!isset($source['name'])) $source['name'] = null;
+      array_push($result, new Forge_Source($source['public_key'], $source['private_key'], $source['source_url'], 
+        $source['port'], $source['name']));
     }
-  } 
+    
+    return $result;
+  }
   
 // ------------------------------------------------------------------------
 
   /**                       
    * Singleton function.
    *  
+   * @note We ultimately construct a source object and append it to $sources. 
+   *  The $pubKey = null, $privateKey = null, $url = null vars are basically there for ease of use.
+   * 
    * @param string $pubKey The Public key.  
-   * @param string $privateKey The Public key. 
+   * @param string $privateKey The Public key.     
+   * @param string $url The Source URL.
+   * @param array  $sources Should be an array. Do not use this if you set any of the previous vars.
+   *  $source['public_key'], $source['private_key'], $source['source_url']
+   *
    * @param array $config Configuration array. Following options accepted; 
-   *  $this->config['decode']
-   *  $this->config['sources']
-   *  $this->config['port']
+   *  $config['decode'] whether or not to decode.  
+   *  $config['limit'] number of items to return.
    * @return obj Forge_API
    */
-  public function &getInstance($pubKey = null, $privateKey = null, $config = null)
+  public function __construct($pubKey = null, $privateKey = null, $url = null, $sources = null, $config = null)
   {
     static $instance;            
     
     if(!is_object($instance)) 
-      $instance = new Forge_API($pubKey, $privateKey, $config);   
+      $instance = new Forge_API($pubKey, $privateKey, $url, $sources, $config);   
       
     return $instance;
   } 
@@ -186,8 +188,7 @@ class Forge_API
     if(is_string($artifacts) AND $returnAsArray == true)
       $artifacts = array($artifacts);   
         
-    if(is_array($artifacts)) 
-    {
+    if(is_array($artifacts)) {
       foreach($artifacts as $artifactName)
         $result[$artifactName] = $this->request('api/v1/artifacts/get/'.$artifactName);
     }
@@ -243,11 +244,12 @@ class Forge_API
       $return = array('artifacts' => array(), 'count' => 0);
     
     foreach($this->sources as $source)
-    {
+    {      
+      
      $OAuth       = new OAuthSimple(); 
-     $OAuthResult = $OAuth->sign(array('path' => 'http://'.$source.':'.$this->port.'/'.$path, 'parameters' => $params, 'signatures' => $this->signatures));  
+     $OAuthResult = $OAuth->sign(array('path' => 'http://'.$source->source_url.':'.$this->port.'/'.$path, 'parameters' => $params, 'signatures' => $source->signatures));  
 
-     $rc = new REST_SimpleClient($source, $this->port);      
+     $rc = new REST_SimpleClient($source->source_url, $source->port);      
      $rc->request->setHeader('Authorization', 'Authorization: '.$OAuthResult['header']);          
      $result = $rc->{$method}('/'.$path, $params); 
      $rc->close(); 
@@ -285,18 +287,23 @@ class Forge_API
   /**                       
    * Checks the Artifacts for problems. Uses magic just kidding, it uses drugs. Don't worry only the medical kind.
    *
-   * @param array $artifacts An array of Artifact objects. Should have been previously decoded from JSON.
+   * @param array $artifacts An array of Artifact objects. Should have been previously decoded from JSON.   
+   * @param array $artifacts_check_against. Optional. An array of Artifact objects to check the others against. Should be the ones from the forge.
    * @return array An array of modified unicorns, nah its actually artifacts. What were your expecting unicorns?
    */
-  public function checkArtifacts($artifacts)
-  {   
-    $forge = Forge::getInstance();
+  public function checkArtifacts($artifacts, $artifacts_check_against = null)
+  { 
+    if(is_null($artifacts_check_against)) {
+      $forge = Forge::getInstance();
+      $artifacts_check_against = $forge->artifacts();
+    }   
+    
     foreach($artifacts as $k => $artifact)
     {   
       // Check For Integrations.
       foreach($artifact->integrations as $integration)
       {              
-        if(array_key_exists($integration, $forge->artifacts))
+        if(array_key_exists($integration, $artifacts_check_against))
           @$artifacts[$k]->integrates = true;  
         else 
           @$artifacts[$k]->integrates = false;
@@ -305,7 +312,7 @@ class Forge_API
       // Check For Incompatibilities.
       foreach($artifact->incompatibilities as $incompatibility)
       {              
-        if(!array_key_exists($incompatibility, $forge->artifacts))
+        if(!array_key_exists($incompatibility, $artifacts_check_against))
           @$artifacts[$k]->compatible = true;  
         else 
           @$artifacts[$k]->compatible = false;
@@ -315,7 +322,7 @@ class Forge_API
       @$artifacts[$k]->unmetDependencies = array();
       foreach($artifact->dependencies as $dependency)
       {              
-        if(!array_key_exists($dependency, $forge->artifacts)) 
+        if(!array_key_exists($dependency, $artifacts_check_agains)) 
         {
            @$artifacts[$k]->dependenciesUnMet = true;    
            @$artifacts[$k]->unmetDependencies[] = $dependency;  
