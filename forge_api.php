@@ -11,7 +11,6 @@ require 'source.php';
 /**
  * Forge API Script.
  *    
- * @subpackage  core
  * @version     1.0 Beta
  * @author      Ken Erickson AKA Bookworm http://bookwormproductions.net
  * @copyright   Copyright 2009 - 2011 Design BreakDown, LLC.
