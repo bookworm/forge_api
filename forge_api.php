@@ -86,11 +86,15 @@ class Forge_API
   {
     $result = array();
     
-    foreach($sources as $source) {    
-      if(!isset($source['port'])) $source['port'] = null;
-      if(!isset($source['name'])) $source['name'] = null;
-      array_push($result, new Forge_Source($source['public_key'], $source['private_key'], $source['source_url'], 
-        $source['port'], $source['name']));
+    foreach($sources as $source)
+    {          
+      if(!is_object($source))  {
+        if(!isset($source['port'])) $source['port'] = null;
+        if(!isset($source['name'])) $source['name'] = null;      
+        $source = (object) $source;
+      }
+      array_push($result, new Forge_Source($source->public_key, $source->private_key, $source->source_url, 
+        $source->port, $source->name));
     }
     
     return $result;
