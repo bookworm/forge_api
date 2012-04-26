@@ -17,7 +17,7 @@ class Forge_Source
    *                              
    * @var string     
    **/
-  var $pubic_key; 
+  var $public_key; 
 
   /**
    * Private API Key.
@@ -72,11 +72,12 @@ class Forge_Source
    * @return self
    */
   public function __construct($public_key, $private_key, $url = 'localhost', $port=3000, $name='Forge Source')
-  {
+  {       
+    $this->public_key  = $public_key;  
+    $this->private_key = $private_key;      
+    
     $this->signatures = array('consumer_key' => $this->public_key, 'shared_secret' => $this->private_key);     
     
-    $this->public_key  = $public_key;  
-    $this->private_key = $private_key;  
     $this->source_url  = $url;
     $this->url         = $url;     
     $this->port        = $port;

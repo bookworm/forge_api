@@ -1,4 +1,7 @@
-<?php  
+<?php       
+if(!defined('DS')) {
+  define('DS', DIRECTORY_SEPARATOR);
+}
 
 // Requires
 require 'oauth.php';    
@@ -40,7 +43,7 @@ class Forge_API
    *  $config['limit'] number of items to return. 
    **/
   var $config = array( 
-    'limit' => '20',
+    'limit' => '10',
   );
 
   /**
@@ -119,7 +122,7 @@ class Forge_API
    *  $config['limit'] number of items to return.
    * @return obj Forge_API
    */
-  public function __construct($pubKey = null, $privateKey = null, $url = null, $sources = null, $config = null)
+  public function instance($pubKey = null, $privateKey = null, $url = null, $sources = null, $config = null)
   {
     static $instance;            
     
@@ -141,7 +144,7 @@ class Forge_API
    */
   public function getAllArtifacts($params = array(), $check = true, $filter = null)
   { 
-    if(is_null($filter)) {   
+    if(is_null($filter) and class_exists('Forge')) {   
       $forge  = Forge::getInstance();     
       $filter = implode(",", $forge->artifacts);
     }     
@@ -250,7 +253,7 @@ class Forge_API
     {      
       
      $OAuth       = new OAuthSimple(); 
-     $OAuthResult = $OAuth->sign(array('path' => 'http://'.$source->source_url.':'.$this->port.'/'.$path, 'parameters' => $params, 'signatures' => $source->signatures));  
+     $OAuthResult = $OAuth->sign(array('path' => 'http://'.$source->source_url.':'.$source->port.'/'.$path, 'parameters' => $params, 'signatures' => $source->signatures));  
 
      $rc = new REST_SimpleClient($source->source_url, $source->port);      
      $rc->request->setHeader('Authorization', 'Authorization: '.$OAuthResult['header']);          
@@ -262,7 +265,7 @@ class Forge_API
      if(count($this->sources) == 1)
      {
        if($this->decode == true)
-         return json_decode($result->content);  
+         return json_decode($result->content)['data'];  
        else
          return $result->content; 
      }
@@ -333,7 +336,8 @@ class Forge_API
         else 
           @$artifacts[$k]->dependenciesUnMet = false;    
       }       
-    } 
+    }
+     
     return $artifacts;
   }
   
