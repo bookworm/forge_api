@@ -1,0 +1,13 @@
+- go over code
+- get a test system up and running
+   
+Tests:
+  - bootstrap
+  - load a config/instantit
+  
+API Tests:
+  - getAllArtifacts
+  - getArtifact
+  - getArtifacts (array of artifacts)
+  - getIntegrated
+  - checkArtifacts   
