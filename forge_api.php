@@ -16,8 +16,8 @@ require 'source.php';
  *    
  * @version     1.0 Beta
  * @author      Ken Erickson AKA Bookworm http://bookwormproductions.net
- * @copyright   Copyright 2009 - 2011 Design BreakDown, LLC.
- * @license     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPLv2       
+ * @copyright   Copyright 2009 - 2012 Design BreakDown, LLC.
+ * @license     http://www.gnu.org/licenses/gpl-3.0.html GNU/GPLV3       
  */
 class Forge_API
 {
@@ -56,7 +56,7 @@ class Forge_API
    * @param string $privateKey The Public key.     
    * @param string $url The Source URL.
    * @param array  $sources Should be an array. Do not use this if you set any of the previous vars.
-   *  $source['public_key'], $source['private_key'], $source['source_url']
+   *  $source['public_key'], $source['private_key'], $source['url']
    *
    * @param array $config Configuration array. Following options accepted; 
    *  $config['decode'] whether or not to decode.  
@@ -71,7 +71,7 @@ class Forge_API
     }  
     
     if(is_null($sources))
-      $sources = array(array('public_key' => $pubKey, 'private_key' => $privateKey, 'source_url' => $url));
+      $sources = array(array('public_key' => $pubKey, 'private_key' => $privateKey, 'url' => $url));
       
     $this->sources = $this->_genSources($sources);
   }
@@ -96,7 +96,7 @@ class Forge_API
         if(!isset($source['name'])) $source['name'] = null;      
         $source = (object) $source;
       }
-      array_push($result, new Forge_Source($source->public_key, $source->private_key, $source->source_url, 
+      array_push($result, new Forge_Source($source->public_key, $source->private_key, $source->url, 
         $source->port, $source->name));
     }
     
@@ -115,7 +115,7 @@ class Forge_API
    * @param string $privateKey The Public key.     
    * @param string $url The Source URL.
    * @param array  $sources Should be an array. Do not use this if you set any of the previous vars.
-   *  $source['public_key'], $source['private_key'], $source['source_url']
+   *  $source['public_key'], $source['private_key'], $source['url']
    *
    * @param array $config Configuration array. Following options accepted; 
    *  $config['decode'] whether or not to decode.  
@@ -161,20 +161,23 @@ class Forge_API
         $this->decode = true;
       } 
            
-      $artifacts = $this->request('api/v1/artifacts/all', $params);  
-      $artifacts->artifacts = $this->checkArtifacts($artifacts->artifacts);          
-
+      $artifacts = $this->request('api/v1/artifacts/all', $params);   
+      
+      if(is_null($artifacts)) 
+        return null;      
+      else        
+        $artifacts = $artifacts->artifacts;
+                        
       $this->decode = $decodeOrg;  
              
       if($this->decode == false)
         return json_encode($artifacts);    
       else
-        return $artifacts;
+        return  $artifacts;
     }
     else
-      return $artifacts = $this->request('api/v1/artifacts/all', $params);  
+      return $this->request('api/v1/artifacts/all', $params)->artifacts;  
   }  
-  
   
 // ------------------------------------------------------------------------
 
@@ -186,6 +189,8 @@ class Forge_API
    * @return mixed Either: 1. An array of artifacts. OR 2. An artifact object.
    *  You can also choose to return as an array anyway. If you do that then use the first element via index,
    *  i.e $artifact = $artifacts[0];
+   *
+   * @todo Should we return null if one of the artifacts doesn't exist?
    */   
   public function getArtifact($artifacts, $returnAsArray = false)
   {
@@ -194,12 +199,17 @@ class Forge_API
     if(is_string($artifacts) AND $returnAsArray == true)
       $artifacts = array($artifacts);   
         
-    if(is_array($artifacts)) {
-      foreach($artifacts as $artifactName)
-        $result[$artifactName] = $this->request('api/v1/artifacts/get/'.$artifactName);
+    if(is_array($artifacts)) 
+    {
+      foreach($artifacts as $artifactName)  
+      {
+        $artifact = $this->request('api/v1/artifacts/'.$artifactName);
+        if(!is_null($artifact))   
+          $result[] = $artifact;
+      }
     }
     else
-      $result = $this->request('api/v1/artifacts/get/'.$artifactName); 
+      $result = $this->request('api/v1/artifacts/'.$artifacts); 
 
     return $result;
   }
@@ -228,10 +238,22 @@ class Forge_API
    * @param string $artifacts A string of comma separated artifact names to find integrations for.
    * @return array An array of artifacts providing integrations.
    */   
-  public function getIntegrated($artifacts)  
+  public function getAllIntegrated($artifacts)  
   {
     return $this->request('api/v1/artifacts/all', array('integrations' => $artifacts)); 
-  }    
+  } 
+  
+  public function getIntegrated($artifact)
+  {
+    $artifacts = $this->request('api/v1/artifacts/'.$artifact.'/integrated');   
+    
+    if(is_null($artifacts)) 
+      return null;      
+    else        
+      $artifacts = $artifacts->artifacts;        
+      
+    return $artifacts;
+  }   
   
 // ------------------------------------------------------------------------
 
@@ -253,29 +275,35 @@ class Forge_API
     {      
       
      $OAuth       = new OAuthSimple(); 
-     $OAuthResult = $OAuth->sign(array('path' => 'http://'.$source->source_url.':'.$source->port.'/'.$path, 'parameters' => $params, 'signatures' => $source->signatures));  
+     $OAuthResult = $OAuth->sign(array('path' => 'http://'.$source->url.':'.$source->port.'/'.$path, 'parameters' => $params, 'signatures' => $source->signatures));  
 
-     $rc = new REST_SimpleClient($source->source_url, $source->port);      
+     $rc = new REST_SimpleClient($source->url, $source->port);      
      $rc->request->setHeader('Authorization', 'Authorization: '.$OAuthResult['header']);          
-     $result = $rc->{$method}('/'.$path, $params); 
+     $result = $rc->{$method}('/'.$path, $params);  
      $rc->close(); 
      if ($result->isError()) die($result->error);
          
-     
-     if(count($this->sources) == 1)
+           
+     if($result->content)
      {
-       if($this->decode == true)
-         return json_decode($result->content)['data'];  
+       if(count($this->sources) == 1)
+       {
+         if($this->decode == true)  
+           return json_decode($result->content)->data;  
+         else
+           return $result->content; 
+       }
        else
-         return $result->content; 
-     }
-     else
-     {  
-       $resultJSON = json_decode($result->content); 
-       $return['artifacts'] = array_merge($return['artifacts'], $resultJSON->artifacts);  
-       $return['count']     = $result['count'] + $resultJSON->count;
-       unset($resultJSON);
-     }
+       {  
+         $resultJSON = json_decode($result->content); 
+         $return['artifacts'] = array_merge($return['artifacts'], $resultJSON->artifacts);  
+         $return['count']     = $result['count'] + $resultJSON->count;
+         unset($resultJSON);
+       }
+     }   
+     else {
+       return null;
+     }     
 
      unset($rc);
      unset($OAuth); 
@@ -288,58 +316,6 @@ class Forge_API
       return json_encode($return);
   } 
   
-// ------------------------------------------------------------------------
-
-  /**                       
-   * Checks the Artifacts for problems. Uses magic just kidding, it uses drugs. Don't worry only the medical kind.
-   *
-   * @param array $artifacts An array of Artifact objects. Should have been previously decoded from JSON.   
-   * @param array $artifacts_check_against. Optional. An array of Artifact objects to check the others against. Should be the ones from the forge.
-   * @return array An array of modified unicorns, nah its actually artifacts. What were your expecting unicorns?
-   */
-  public function checkArtifacts($artifacts, $artifacts_check_against = null)
-  { 
-    if(is_null($artifacts_check_against)) {
-      $forge = Forge::getInstance();
-      $artifacts_check_against = $forge->artifacts();
-    }   
-    
-    foreach($artifacts as $k => $artifact)
-    {   
-      // Check For Integrations.
-      foreach($artifact->integrations as $integration)
-      {              
-        if(array_key_exists($integration, $artifacts_check_against))
-          @$artifacts[$k]->integrates = true;  
-        else 
-          @$artifacts[$k]->integrates = false;
-      }     
-      
-      // Check For Incompatibilities.
-      foreach($artifact->incompatibilities as $incompatibility)
-      {              
-        if(!array_key_exists($incompatibility, $artifacts_check_against))
-          @$artifacts[$k]->compatible = true;  
-        else 
-          @$artifacts[$k]->compatible = false;
-      } 
-      
-      // Check For unMet Dependencies
-      @$artifacts[$k]->unmetDependencies = array();
-      foreach($artifact->dependencies as $dependency)
-      {              
-        if(!array_key_exists($dependency, $artifacts_check_agains)) 
-        {
-           @$artifacts[$k]->dependenciesUnMet = true;    
-           @$artifacts[$k]->unmetDependencies[] = $dependency;  
-        }
-        else 
-          @$artifacts[$k]->dependenciesUnMet = false;    
-      }       
-    }
-     
-    return $artifacts;
-  }
   
 // ------------------------------------------------------------------------
 

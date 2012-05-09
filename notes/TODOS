@@ -1,0 +1,17 @@
+> go over code
+> get a test system up and running
+   
+> Tests:
+  > bootstrap
+  > load a config/instantit
+  
+API Tests:
+  > getAllArtifacts
+  > getArtifact
+  > getArtifacts (array of artifacts)     
+  > getAllArtifacts only specific
+  > getIntegrated
+  > checkArtifacts. scratch that should be dum. with a decent API thi client lib doesn't need to do that. besides any logic should be here anyway it should be in the forge. this is just an interface to the API.       
+  
+Forge API;
+  > getIntegrated method

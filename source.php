@@ -32,16 +32,9 @@ class Forge_Source
    * @var int   
    **/
   var $port = 3000;
-   
-  /**
-   * The Source URL.   
-   *                              
-   * @var string
-   **/
-  var $source_url;   
   
   /**
-   * The Source URL. An Alias.   
+   * The Source URL. 
    *                              
    * @var string
    **/
@@ -78,7 +71,6 @@ class Forge_Source
     
     $this->signatures = array('consumer_key' => $this->public_key, 'shared_secret' => $this->private_key);     
     
-    $this->source_url  = $url;
     $this->url         = $url;     
     $this->port        = $port;
     $this->name        = $name;

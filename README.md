@@ -2,4 +2,4 @@ Client library for working with the [Forge](https://github.com/bookworm/dbd_forg
 
 # License  
  
-Licensed under GPLV2. But honestly I don't care what you do with it. Just follow the golden rule of open source and don't claim it as your own.
+Licensed under GPLV3. But honestly I don't care what you do with it. Just follow the golden rule of open source and don't claim it as your own.
