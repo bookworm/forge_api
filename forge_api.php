@@ -283,8 +283,7 @@ class Forge_API
      $rc->close(); 
      if ($result->isError()) die($result->error);
          
-           
-     if($result->content)
+     if($result->content && substr($result->code, 0, 2) == 20)
      {
        if(count($this->sources) == 1)
        {
